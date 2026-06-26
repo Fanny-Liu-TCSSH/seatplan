@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fanny 老師的皮克敏溫室教室 · 混班座位系統</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Playful Rounded & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                        pikmin: ['Fredoka', 'Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        google: {
+                            blue: '#4285F4',
+                            red: '#EA4335',
+                            yellow: '#FBBC05',
+                            green: '#34A853',
+                        },
+                        classroom: {
+                            chalkboard: '#163e2b',
+                            wood: '#a05c33',
+                            garden: '#f4fbf7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 全域可愛字體與背景 */
+        body {
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+            background-color: #fafbfd;
+            background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
+            background-size: 24px 24px;
+        }
+
+        /* 皮克敏溫室 - 班級漸層色系 (融入 Google 四原色 + 可愛元素) */
+        /* 105班 - 紅皮克敏 (Google Red) */
+        .class-105 { 
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe3e3 100%); 
+            border: 3px solid #ffa8a8; 
+            color: #c92a2a; 
+        }
+        .class-105 .badge { background-color: #ea4335; color: #ffffff; }
+        
+        /* 108班 - 藍皮克敏 (Google Blue) */
+        .class-108 { 
+            background: linear-gradient(135deg, #f0f4ff 0%, #dbe4ff 100%); 
+            border: 3px solid #bac8ff; 
+            color: #364fc7; 
+        }
+        .class-108 .badge { background-color: #4285F4; color: #ffffff; }
+        
+        /* 111班 - 黃皮克敏 (Google Yellow) */
+        .class-111 { 
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); 
+            border: 3px solid #fde68a; 
+            color: #b25e00; 
+        }
+        .class-111 .badge { background-color: #fbbc05; color: #3d2000; }
+        
+        /* 112班 - 綠皮克敏 (Google Green) */
+        .class-112 { 
+            background: linear-gradient(135deg, #f1fbf4 0%, #dbf5e4 100%); 
+            border: 3px solid #b2f2bb; 
+            color: #2b8a3e; 
+        }
+        .class-112 .badge { background-color: #34a853; color: #ffffff; }
+        
+        /* 115班 - 紫色皮克敏 */
+        .class-115 { 
+            background: linear-gradient(135deg, #f8f0fc 0%, #f3d9fa 100%); 
+            border: 3px solid #eebefa; 
+            color: #862e9c; 
+        }
+        .class-115 .badge { background-color: #ae3ec9; color: #ffffff; }
+        
+        /* 117班 - 白皮克敏 / 粉紅羽翼皮克敏 */
+        .class-117 { 
+            background: linear-gradient(135deg, #fff0f6 0%, #ffdeeb 100%); 
+            border: 3px solid #fcc2d7; 
+            color: #c2255c; 
+        }
+        .class-117 .badge { background-color: #f06595; color: #ffffff; }
+
+        /* 空位 - 溫室小花盆 */
+        .class-empty { 
+            background: #fdfdfd; 
+            border: 3px dashed #cbd5e1; 
+            color: #94a3b8; 
+        }
+        .class-empty .badge { background-color: #94a3b8; color: #ffffff; }
+
+        /* Q 彈 hover 與旋轉動畫 */
+        .seating-grid {
+            transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .seat-card-inner {
+            transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .seat-card {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .seat-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
+        }
+
+        /* 互換狀態外框 (帶有魔幻皮克敏光芒) */
+        .seat-card.selected-for-swap {
+            border: 3px solid #d946ef !important;
+            box-shadow: 0 0 18px rgba(217, 70, 239, 0.6);
+            transform: scale(1.05) rotate(1deg);
+            z-index: 20;
+            animation: bounceLight 1s infinite alternate;
+        }
+
+        @keyframes bounceLight {
+            from { box-shadow: 0 0 10px rgba(217, 70, 239, 0.4); }
+            to { box-shadow: 0 0 22px rgba(217, 70, 239, 0.8); }
+        }
+
+        /* 截圖預覽模式 */
+        body.preview-mode {
+            background-color: #ffffff;
+            background-image: none;
+        }
+        body.preview-mode .classroom-container {
+            max-width: 980px;
+            box-shadow: none;
+            padding: 15px;
+            border: none;
+        }
+        body.preview-mode .seat-card {
+            height: 82px;
+            border-width: 2px;
+        }
+        body.preview-mode .seat-name {
+            font-size: 1.4rem;
+        }
+
+        /* 自訂可愛滾動條 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+            border: 2px solid #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col transition-colors duration-300">
+
+    <!-- 頂部可愛導覽列 -->
+    <header id="navBar" class="bg-white border-b-4 border-slate-100 py-4 px-6 sticky top-0 z-40 shadow-xs">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-google-green text-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-green-100 transform -rotate-3 hover:rotate-6 transition-transform duration-200 cursor-pointer">
+                    <i class="fa-solid fa-seedling text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-2xl text-slate-900 tracking-tight flex items-center gap-2 font-pikmin">
+                        Fanny 老師的皮克敏溫室教室
+                    </h1>
+                    <p class="text-xs text-slate-500 font-bold mt-0.5 tracking-wider flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-google-blue inline-block"></span> 藍皮克敏
+                        <span class="w-2 h-2 rounded-full bg-google-red inline-block"></span> 紅皮克敏
+                        <span class="w-2 h-2 rounded-full bg-google-yellow inline-block"></span> 黃皮克敏
+                        <span class="w-2 h-2 rounded-full bg-google-green inline-block"></span> 綠皮克敏 · 6×6 課堂生態座位圖
+                    </p>
+                </div>
+            </div>
+            
+            <!-- 主要功能按鈕群 -->
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <!-- 視角切換器 -->
+                <div class="bg-slate-100 p-1.5 rounded-2xl flex items-center shadow-inner border border-slate-200">
+                    <button onclick="switchView('student')" id="btnViewStudent" class="px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 bg-white text-slate-800 shadow-sm flex items-center gap-1.5">
+                        <i class="fa-solid fa-eye text-google-blue"></i> 學生看黑板
+                    </button>
+                    <button onclick="switchView('teacher')" id="btnViewTeacher" class="px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 text-slate-500 hover:text-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-chalkboard-user text-google-red"></i> 老師看講台
+                    </button>
+                </div>
+
+                <button onclick="openRosterDrawer()" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-2xl text-sm font-black transition-all duration-200 flex items-center gap-2 shadow-md">
+                    <i class="fa-solid fa-file-csv text-google-yellow"></i> 匯入名單
+                </button>
+                
+                <button onclick="togglePreviewMode(true)" class="bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 px-5 py-2 rounded-2xl text-sm font-black transition-all duration-200 flex items-center gap-2 shadow-xs">
+                    <i class="fa-solid fa-camera text-google-blue"></i> 一鍵截圖
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Google 四色俏皮控制面板 -->
+    <section id="controlPanel" class="max-w-7xl mx-auto px-6 mt-6 w-full">
+        <div class="bg-white border-2 border-slate-100 rounded-3xl p-5 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm relative overflow-hidden">
+            <!-- Google 色條裝飾 -->
+            <div class="absolute top-0 left-0 right-0 h-1.5 flex">
+                <div class="bg-google-blue flex-1"></div>
+                <div class="bg-google-red flex-1"></div>
+                <div class="bg-google-yellow flex-1"></div>
+                <div class="bg-google-green flex-1"></div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+                <!-- 依名單順序：Google 綠色按鈕 -->
+                <button onclick="arrangeSequential()" class="bg-white hover:bg-green-50/50 text-google-green border-2 border-google-green/30 hover:border-google-green px-5 py-2.5 rounded-2xl text-sm font-black transition-all duration-200 flex items-center gap-2 hover:scale-[1.03] active:scale-[0.97]">
+                    <i class="fa-solid fa-arrow-down-1-9"></i> 依名單順序發芽
+                </button>
+                <!-- 隨機亂數：Google 藍色按鈕 -->
+                <button onclick="arrangeRandom()" class="bg-google-blue hover:bg-blue-600 text-white px-6 py-2.5 rounded-2xl text-sm font-black transition-all duration-200 flex items-center gap-2 shadow-md shadow-blue-100 hover:scale-[1.03] active:scale-[0.97]">
+                    <i class="fa-solid fa-shuffle"></i> 隨機微風亂數排列
+                </button>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 border-l-2 pl-4 border-slate-100">
+                    <label class="relative inline-flex items-center cursor-pointer select-none">
+                        <input type="checkbox" id="swapModeToggle" onchange="toggleSwapMode(this.checked)" class="sr-only peer">
+                        <!-- Google 黃色轉變為粉色切換開關 -->
+                        <div class="w-12 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-fuchsia-500"></div>
+                        <span class="ml-2.5 text-sm font-black text-slate-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrows-up-down-left-right text-fuchsia-500 animate-pulse"></i> 手動搬移座位
+                        </span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 溫室教室主舞台 -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-6 py-6 flex flex-col items-center justify-start gap-6">
+        
+        <div id="classroom" class="classroom-container bg-white border-4 border-slate-100 rounded-[36px] p-8 shadow-sm w-full max-w-5xl transition-all duration-300 relative">
+            
+            <!-- 學生視角：上方黑板區 -->
+            <div id="topBoardArea" class="flex flex-col items-center mb-8 transition-all duration-300">
+                <div class="w-full max-w-2xl bg-classroom-chalkboard border-8 border-amber-900 py-3.5 rounded-2xl shadow-xl text-center relative overflow-hidden">
+                    <div class="absolute inset-0 bg-opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:12px_12px] pointer-events-none"></div>
+                    <div class="absolute left-4 top-2 text-white/40 text-lg"><i class="fa-solid fa-leaf text-google-green"></i></div>
+                    <div class="absolute right-4 top-2 text-white/40 text-lg"><i class="fa-solid fa-flower text-google-red"></i></div>
+                    <span class="text-white text-lg font-black tracking-[0.8em] pl-[0.8em] drop-shadow-md select-none font-mono">皮克敏溫室黑板 🌱</span>
+                </div>
+                <!-- 講桌 -->
+                <div class="w-48 bg-classroom-wood text-white text-xs font-black py-2 mt-4 rounded-b-2xl shadow-md text-center border-t-4 border-amber-950 flex items-center justify-center gap-1.5 transform hover:scale-105 transition-transform duration-150">
+                    <i class="fa-solid fa-table text-amber-200"></i> Fanny 老師講桌
+                </div>
+            </div>
+
+            <!-- 座位 6x6 矩陣 -->
+            <div id="seatingGrid" class="seating-grid grid grid-cols-6 gap-4 w-full">
+                <!-- 由 JavaScript 動態繪製 -->
+            </div>
+
+            <!-- 教師視角：下方黑板區 (預設隱藏) -->
+            <div id="bottomBoardArea" class="flex flex-col items-center mt-8 transition-all duration-300 hidden">
+                <!-- 講桌 -->
+                <div class="w-48 bg-classroom-wood text-white text-xs font-black py-2 mb-4 rounded-t-2xl shadow-md text-center border-b-4 border-amber-950 flex items-center justify-center gap-1.5 transform hover:scale-105 transition-transform duration-150">
+                    <i class="fa-solid fa-table text-amber-200"></i> Fanny 老師講桌
+                </div>
+                <div class="w-full max-w-2xl bg-classroom-chalkboard border-8 border-amber-900 py-3.5 rounded-2xl shadow-xl text-center relative overflow-hidden">
+                    <div class="absolute inset-0 bg-opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:12px_12px] pointer-events-none"></div>
+                    <div class="absolute left-4 top-2 text-white/40 text-lg"><i class="fa-solid fa-leaf text-google-green"></i></div>
+                    <div class="absolute right-4 top-2 text-white/40 text-lg"><i class="fa-solid fa-flower text-google-red"></i></div>
+                    <span class="text-white text-lg font-black tracking-[0.8em] pl-[0.8em] drop-shadow-md select-none font-mono">皮克敏溫室黑板 🌱</span>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- 頁尾提示 -->
+    <footer id="footerArea" class="py-6 text-center text-xs text-slate-400 font-bold tracking-wider">
+        🌱 Fanny 老師的皮克敏溫室教室座位分配系統 © 2026 · 秩序、美感與視覺化高效課堂
+    </footer>
+
+    <!-- 右側抽屜：學生名單設定 -->
+    <div id="rosterDrawer" class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l-4 border-google-blue">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-seedling text-google-green text-xl animate-bounce"></i>
+                <h3 class="font-black text-slate-800 text-lg font-pikmin">溫室種子名單匯入</h3>
+            </div>
+            <button onclick="closeRosterDrawer()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-200 transition-colors">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        
+        <div class="p-6 flex-1 overflow-y-auto space-y-4">
+            <div class="bg-green-50 border border-green-100 rounded-2xl p-4 text-xs text-green-800 leading-relaxed space-y-1.5">
+                <p class="font-black flex items-center gap-1.5 text-sm text-green-900 mb-1">
+                    <i class="fa-solid fa-circle-question"></i> 如何替換班級？
+                </p>
+                <p>1. 請直接貼上 Google 試算表複製的學生整欄資料。</p>
+                <p>2. 第一行必須包含標題列（應包含 <b>班級、座號、姓名</b> 三個標籤）。</p>
+                <p>3. 座位矩陣固定為 36 格，多出的名單將自動截斷，不足的部分會自動生成「萌芽小花盆」空位！</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">種子名單資料區 (CSV 格式)</label>
+                <textarea id="csvInput" rows="18" class="w-full text-xs font-mono p-4 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-google-blue/20 focus:border-google-blue focus:outline-none resize-none bg-slate-50" placeholder="班級,座號,姓名&#10;105,07,許O恩&#10;105,12,王O泊"></textarea>
+            </div>
+        </div>
+
+        <div class="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+            <button onclick="applyNewRoster()" class="flex-1 bg-google-green hover:bg-green-600 text-white font-black py-3 rounded-2xl text-sm shadow-md transition-all hover:scale-[1.02]">
+                <i class="fa-solid fa-leaf"></i> 撒下種子（套用名單）
+            </button>
+            <button onclick="resetToDefaultRoster()" class="bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-700 font-black px-4 py-3 rounded-2xl text-sm transition-all">
+                重置預設
+            </button>
+        </div>
+    </div>
+
+    <!-- 抽屜背景遮罩 -->
+    <div id="drawerOverlay" onclick="closeRosterDrawer()" class="fixed inset-0 bg-black/25 backdrop-blur-xs z-40 hidden transition-opacity duration-300"></div>
+
+    <!-- 浮動提示：當前為截圖模式時顯示 -->
+    <div id="previewFAB" class="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-3.5 z-50 transform translate-y-28 transition-transform duration-300 pointer-events-auto">
+        <span class="text-xs font-black text-slate-300 flex items-center gap-1.5 font-pikmin">
+            <i class="fa-solid fa-wand-magic-sparkles text-google-yellow"></i> 溫室截圖預覽中
+        </span>
+        <button onclick="togglePreviewMode(false)" class="bg-google-red hover:bg-red-600 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors">
+            退出預覽 (ESC)
+        </button>
+    </div>
+
+    <!-- 自訂 Q 版 Toast 訊息框 -->
+    <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 z-50 opacity-0 pointer-events-none transition-all duration-300 scale-95">
+        <div id="toastIcon" class="w-6 h-6 rounded-lg flex items-center justify-center text-xs"></div>
+        <span id="toastMsg" class="text-xs font-black"></span>
+    </div>
+
+    <!-- 核心 JS 邏輯 -->
+    <script>
+        // Fanny 老師預載的學生資料 (CSV 格式)
+        const defaultCSVData = `班級,座號,姓名,合併的資料
+105,07,許O恩,10507 許O恩
+105,12,王O泊,10512 王O泊
+105,22,張O軒,10522 張O軒
+105,28,黃O彣,10528 黃O彣
+105,35,顏O寬,10535 顏O寬
+108,06,陳O妍,10806 陳O妍
+108,14,于O展,10814 于O展
+108,20,陳O鎧,10820 陳O鎧
+108,22,洪O恩,10822 洪O恩
+108,30,葉O傑,10830 葉O傑
+108,33,蔡O臣,10833 蔡O臣
+111,01,王O晴,11101 王O晴
+111,09,黃O媛,11109 黃O媛
+111,15,吳O穎,11115 吳O穎
+111,22,梁O材,11122 梁O材
+111,35,劉O晏,11135 劉O晏
+112,04,黃O緁,11204 黃O緁
+112,18,林O賢,11218 林O賢
+112,19,韋O廷,11219 韋O廷
+112,20,張O睿,11220 張O睿
+112,28,楊O浩,11228 楊O浩
+115,06,董O妍,11506 董O妍
+115,10,賴O恩,11510 賴O恩
+115,11,謝O岑,11511 謝O岑
+115,17,林O霆,11517 林O霆
+115,19,張O凡,11519 張O凡
+115,20,張O崴,11520 張O崴
+115,21,莊O銘,11521 莊O銘
+115,27,葉O廷,11527 葉O廷
+115,32,蕭O浤,11532 蕭O浤
+117,16,林O然,11716 林O然
+117,26,陳O旭,11726 陳O旭
+117,32,蔡O倫,11732 蔡O倫
+117,35,賴O軒,11735 賴O軒`;
+
+        let studentsList = []; // 所有解析後的學生 (Object 陣列)
+        let seatingArrangement = []; // 目前座位排列狀態 (固定 36 格)
+        const GRID_SIZE = 36;
+        
+        let isSwapMode = false;
+        let selectedSeatIndex = null;
+        let currentView = 'student'; // 'student' or 'teacher'
+
+        // 皮克敏植物狀態列表（隨機決定每位同學長出什麼）
+        const pikminStages = [
+            { icon: '🌱', label: '葉子皮克敏', color: '#51cf66' },
+            { icon: '🌸', label: '花苞皮克敏', color: '#fcc2d7' },
+            { icon: '🌼', label: '盛開花朵皮克敏', color: '#ffd43b' }
+        ];
+
+        // 初始化
+        window.onload = function() {
+            document.getElementById('csvInput').value = defaultCSVData;
+            parseCSV(defaultCSVData);
+            arrangeSequential();
+        };
+
+        // 解析 CSV
+        function parseCSV(csvText) {
+            studentsList = [];
+            const lines = csvText.trim().split('\n');
+            if (lines.length <= 1) return;
+
+            const headers = lines[0].split(',');
+            const classIdx = headers.indexOf('班級');
+            const noIdx = headers.indexOf('座號');
+            const nameIdx = headers.indexOf('姓名');
+
+            if (classIdx === -1 || noIdx === -1 || nameIdx === -1) {
+                showToast("CSV 欄位格式錯誤！必須包含「班級、座號、姓名」", "error");
+                return;
+            }
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const cols = lines[i].split(',');
+                if (cols.length < Math.max(classIdx, noIdx, nameIdx) + 1) continue;
+
+                // 為每位同學隨機綁定一個固定的皮克敏植物型態（🌱/🌸/🌼）
+                const randomStage = pikminStages[Math.floor(Math.random() * pikminStages.length)];
+
+                studentsList.push({
+                    class: cols[classIdx].trim(),
+                    no: cols[noIdx].trim(),
+                    name: cols[nameIdx].trim(),
+                    stage: randomStage
+                });
+            }
+        }
+
+        // 依名單順序排列
+        function arrangeSequential() {
+            seatingArrangement = [];
+            for (let i = 0; i < GRID_SIZE; i++) {
+                if (i < studentsList.length) {
+                    seatingArrangement.push({ ...studentsList[i] });
+                } else {
+                    seatingArrangement.push({ class: 'empty', no: '', name: '萌芽花盆', stage: { icon: '🪴', label: '等待小幼苗' } });
+                }
+            }
+            renderSeatingGrid();
+            showToast("已依原始名單發芽排列 🌱", "success");
+        }
+
+        // 隨機亂數排列
+        function arrangeRandom() {
+            let listToShuffle = [];
+            for (let i = 0; i < GRID_SIZE; i++) {
+                if (i < studentsList.length) {
+                    listToShuffle.push({ ...studentsList[i] });
+                } else {
+                    listToShuffle.push({ class: 'empty', no: '', name: '萌芽花盆', stage: { icon: '🪴', label: '等待小幼苗' } });
+                }
+            }
+
+            // Fisher-Yates 隨機洗牌
+            for (let i = listToShuffle.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [listToShuffle[i], listToShuffle[j]] = [listToShuffle[j], listToShuffle[i]];
+            }
+
+            seatingArrangement = listToShuffle;
+            renderSeatingGrid();
+            showToast("一陣微風吹過...座位隨機重新落點！🌬️", "success");
+        }
+
+        // 渲染座位圖
+        function renderSeatingGrid() {
+            const gridContainer = document.getElementById('seatingGrid');
+            gridContainer.innerHTML = '';
+
+            seatingArrangement.forEach((student, index) => {
+                const isStudentEmpty = (student.class === 'empty');
+                const classTheme = isStudentEmpty ? 'class-empty' : `class-${student.class}`;
+                
+                // 設定卡片頂部的皮克敏標示
+                const pikminBadgeText = isStudentEmpty ? 'SPROUT' : `${student.class}班 ${student.no}號`;
+
+                const card = document.createElement('div');
+                card.id = `seat-card-${index}`;
+                card.className = `seat-card cursor-pointer rounded-[24px] p-3 h-[90px] shadow-xs flex flex-col justify-between select-none transform transition-all duration-300 ${classTheme}`;
+                
+                card.onclick = () => handleSeatCardClick(index);
+
+                // 旋轉內部組件 (配合老師講台視角旋轉 $180^\circ$ 時文字不會反過來)
+                const inner = document.createElement('div');
+                inner.className = 'seat-card-inner w-full h-full flex flex-col justify-between';
+                if (currentView === 'teacher') {
+                    inner.style.transform = 'rotate(180deg)';
+                }
+
+                inner.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="badge text-[10px] font-black px-2.5 py-0.5 rounded-full tracking-wider shadow-2xs">
+                            ${pikminBadgeText}
+                        </span>
+                        <!-- 右上角植物型態生態圖標 -->
+                        <span class="text-base select-none filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]" title="${student.stage.label}">
+                            ${student.stage.icon}
+                        </span>
+                    </div>
+                    <div class="seat-name text-center text-xl font-black tracking-widest pl-1 mt-1 truncate">
+                        ${student.name}
+                    </div>
+                `;
+
+                card.appendChild(inner);
+                gridContainer.appendChild(card);
+            });
+        }
+
+        // 雙視角切換
+        function switchView(view) {
+            if (currentView === view) return;
+            currentView = view;
+
+            const grid = document.getElementById('seatingGrid');
+            const topBoard = document.getElementById('topBoardArea');
+            const bottomBoard = document.getElementById('bottomBoardArea');
+            
+            const btnStudent = document.getElementById('btnViewStudent');
+            const btnTeacher = document.getElementById('btnViewTeacher');
+
+            const inners = document.querySelectorAll('.seat-card-inner');
+
+            if (view === 'teacher') {
+                // 整個座位矩陣旋轉 180 度 (前後左右顛倒)
+                grid.style.transform = 'rotate(180deg)';
+                
+                // 內層卡片文字文字修正為正向
+                inners.forEach(el => el.style.transform = 'rotate(180deg)');
+
+                topBoard.classList.add('hidden');
+                bottomBoard.classList.remove('hidden');
+
+                btnTeacher.className = "px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 bg-white text-slate-800 shadow-sm flex items-center gap-1.5";
+                btnStudent.className = "px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 text-slate-500 hover:text-slate-800 flex items-center gap-1.5";
+                
+                showToast("已切換為：講台視野（座位完美 180° 對調）", "info");
+            } else {
+                grid.style.transform = 'none';
+                inners.forEach(el => el.style.transform = 'none');
+
+                topBoard.classList.remove('hidden');
+                bottomBoard.classList.add('hidden');
+
+                btnStudent.className = "px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 bg-white text-slate-800 shadow-sm flex items-center gap-1.5";
+                btnTeacher.className = "px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 text-slate-500 hover:text-slate-800 flex items-center gap-1.5";
+
+                showToast("已切換為：學生視野（黑板在前方）", "info");
+            }
+        }
+
+        // 手動互換開關
+        function toggleSwapMode(enabled) {
+            isSwapMode = enabled;
+            if (selectedSeatIndex !== null) {
+                const prevCard = document.getElementById(`seat-card-${selectedSeatIndex}`);
+                if (prevCard) prevCard.classList.remove('selected-for-swap');
+                selectedSeatIndex = null;
+            }
+
+            if (isSwapMode) {
+                showToast("搬移模式已開啟！請點擊任意「兩個皮克敏座位」進行互換。", "info");
+            } else {
+                showToast("已鎖定座位排定圖", "info");
+            }
+        }
+
+        // 點擊座位處理
+        function handleSeatCardClick(index) {
+            if (!isSwapMode) {
+                const student = seatingArrangement[index];
+                if (student.class !== 'empty') {
+                    showToast(`學生：${student.class}班 ${student.no}號 - ${student.name} (${student.stage.label})`, "success");
+                }
+                return;
+            }
+
+            const clickedCard = document.getElementById(`seat-card-${index}`);
+
+            if (selectedSeatIndex === null) {
+                selectedSeatIndex = index;
+                clickedCard.classList.add('selected-for-swap');
+                showToast("已選取，請選擇要更換的另一個位置。", "info");
+            } else {
+                if (selectedSeatIndex === index) {
+                    clickedCard.classList.remove('selected-for-swap');
+                    selectedSeatIndex = null;
+                    showToast("取消選取", "info");
+                    return;
+                }
+
+                // 互換資料
+                const firstIndex = selectedSeatIndex;
+                const secondIndex = index;
+
+                const s1 = seatingArrangement[firstIndex];
+                const s2 = seatingArrangement[secondIndex];
+
+                seatingArrangement[firstIndex] = s2;
+                seatingArrangement[secondIndex] = s1;
+
+                renderSeatingGrid();
+
+                selectedSeatIndex = null;
+                
+                // 可愛對調彈跳動態回饋
+                const card1 = document.getElementById(`seat-card-${firstIndex}`);
+                const card2 = document.getElementById(`seat-card-${secondIndex}`);
+                card1.classList.add('scale-95', 'opacity-60');
+                card2.classList.add('scale-95', 'opacity-60');
+                setTimeout(() => {
+                    card1.classList.remove('scale-95', 'opacity-60');
+                    card2.classList.remove('scale-95', 'opacity-60');
+                }, 300);
+
+                const name1 = s1.class === 'empty' ? '花盆' : `${s1.class}班${s1.no}號 ${s1.name}`;
+                const name2 = s2.class === 'empty' ? '花盆' : `${s2.class}班${s2.no}號 ${s2.name}`;
+                showToast(`搬移成功：${name1} ⇄ ${name2} 🌱`, "success");
+            }
+        }
+
+        // 抽屜控制
+        function openRosterDrawer() {
+            document.getElementById('rosterDrawer').classList.remove('translate-x-full');
+            document.getElementById('drawerOverlay').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('drawerOverlay').classList.add('opacity-100');
+            }, 10);
+        }
+
+        function closeRosterDrawer() {
+            document.getElementById('rosterDrawer').classList.add('translate-x-full');
+            document.getElementById('drawerOverlay').classList.remove('opacity-100');
+            setTimeout(() => {
+                document.getElementById('drawerOverlay').classList.add('hidden');
+            }, 300);
+        }
+
+        // 套用新名單
+        function applyNewRoster() {
+            const csvText = document.getElementById('csvInput').value;
+            parseCSV(csvText);
+            
+            if (studentsList.length === 0) {
+                showToast("種子名單欄位不完整，請確認格式喔！", "error");
+                return;
+            }
+
+            arrangeSequential();
+            closeRosterDrawer();
+            showToast(`種子播灑完畢！順利匯入 ${studentsList.length} 位皮克敏學生 🌱`, "success");
+        }
+
+        // 重設名單
+        function resetToDefaultRoster() {
+            document.getElementById('csvInput').value = defaultCSVData;
+            applyNewRoster();
+        }
+
+        // 截圖預覽模式
+        function togglePreviewMode(enable) {
+            const navbar = document.getElementById('navBar');
+            const controlPanel = document.getElementById('controlPanel');
+            const previewFab = document.getElementById('previewFAB');
+            const footer = document.getElementById('footerArea');
+            const body = document.body;
+
+            if (enable) {
+                body.classList.add('preview-mode', 'p-4');
+                navbar.classList.add('hidden');
+                controlPanel.classList.add('hidden');
+                footer.classList.add('hidden');
+                previewFab.classList.remove('translate-y-28');
+                showToast("已進入一鍵截圖模式。您可使用系統內建截圖，完成後按 ESC 鍵可返回原視窗。", "info");
+            } else {
+                body.classList.remove('preview-mode', 'p-4');
+                navbar.classList.remove('hidden');
+                controlPanel.classList.remove('hidden');
+                footer.classList.remove('hidden');
+                previewFab.classList.add('translate-y-28');
+            }
+        }
+
+        // 監聽 ESC 鍵
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                togglePreviewMode(false);
+            }
+        });
+
+        // 可愛 Q 版 Toast
+        let toastTimeout;
+        function showToast(message, type = "info") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            clearTimeout(toastTimeout);
+            toastMsg.innerText = message;
+            
+            if (type === "success") {
+                toastIcon.className = "w-6 h-6 rounded-xl flex items-center justify-center text-xs bg-google-green text-white shadow-md";
+                toastIcon.innerHTML = `<i class="fa-solid fa-seedling"></i>`;
+            } else if (type === "error") {
+                toastIcon.className = "w-6 h-6 rounded-xl flex items-center justify-center text-xs bg-google-red text-white shadow-md";
+                toastIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+            } else {
+                toastIcon.className = "w-6 h-6 rounded-xl flex items-center justify-center text-xs bg-google-blue text-white shadow-md";
+                toastIcon.innerHTML = `<i class="fa-solid fa-star"></i>`;
+            }
+
+            // 顯示
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+            toast.classList.add('opacity-100', 'pointer-events-auto', 'scale-100');
+
+            // 3.5秒後自動消失
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+                toast.classList.remove('opacity-100', 'pointer-events-auto', 'scale-100');
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
